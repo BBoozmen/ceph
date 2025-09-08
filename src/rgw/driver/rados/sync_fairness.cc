@@ -262,12 +262,17 @@ class RadosBidManager : public BidManager, public Server, public DoutPrefix {
     : DoutPrefix(store->ctx(), dout_subsys, "sync fairness: "),
       store(store), obj(watch_obj), watcher(this, store, watch_obj, this)
   {
-    // fill my_bids with random values
+    // allocate enough capacity for my_bids vector
+    my_bids.resize(num_shards);
+  }
+
+  void generate_my_bids()
+  {
     std::random_device rd;
     std::default_random_engine rng{rd()};
 
-    my_bids.resize(num_shards);
-    for(bid_value i = 0; i < num_shards; ++i) {
+    // fill my_bids with random values
+    for(bid_value i = 0; i < my_bids.size(); ++i) {
       my_bids[i] = i;
     }
     std::shuffle(my_bids.begin(), my_bids.end(), rng);
@@ -304,7 +309,11 @@ class RadosBidManager : public BidManager, public Server, public DoutPrefix {
 
   RGWCoroutine* notify_cr() override
   {
+    ldpp_dout(this, 10) << "send my_bids to peers" << dendl;
+
     auto lock = std::scoped_lock{mutex};
+
+    generate_my_bids();
     return new NotifyCR(store, this, obj, my_bids);
   }
 
